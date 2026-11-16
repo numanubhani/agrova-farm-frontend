@@ -1,6 +1,88 @@
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '/api' });
+// In dev this stays '/api' and Vite's proxy (vite.config.js) forwards it to
+// the local Django server. In production (different subdomain for the
+// backend) set VITE_API_BASE_URL at build time, e.g. in .env.production:
+//   VITE_API_BASE_URL=https://api.yourdomain.com/api
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const api = axios.create({ baseURL: API_BASE_URL });
+
+const ACCESS_KEY = 'farm_access';
+const REFRESH_KEY = 'farm_refresh';
+
+function getAccess() {
+  try {
+    return localStorage.getItem(ACCESS_KEY);
+  } catch {
+    return null;
+  }
+}
+function getRefresh() {
+  try {
+    return localStorage.getItem(REFRESH_KEY);
+  } catch {
+    return null;
+  }
+}
+export function setTokens({ access, refresh } = {}) {
+  try {
+    if (access) localStorage.setItem(ACCESS_KEY, access);
+    else localStorage.removeItem(ACCESS_KEY);
+    if (refresh) localStorage.setItem(REFRESH_KEY, refresh);
+    else if (refresh !== undefined) localStorage.removeItem(REFRESH_KEY);
+  } catch {}
+}
+export function clearTokens() {
+  try {
+    localStorage.removeItem(ACCESS_KEY);
+    localStorage.removeItem(REFRESH_KEY);
+  } catch {}
+}
+export function hasRefreshToken() {
+  return !!getRefresh();
+}
+
+api.interceptors.request.use((config) => {
+  const token = getAccess();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+let refreshPromise = null;
+
+api.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const { response, config } = error;
+    const isAuthEndpoint = config?.url?.includes('/auth/login') || config?.url?.includes('/auth/refresh');
+    if (response?.status === 401 && !isAuthEndpoint && !config._retried) {
+      const refresh = getRefresh();
+      if (refresh) {
+        config._retried = true;
+        try {
+          refreshPromise = refreshPromise || api.post('/auth/refresh/', { refresh }).then((r) => r.data);
+          const data = await refreshPromise;
+          refreshPromise = null;
+          setTokens({ access: data.access });
+          config.headers.Authorization = `Bearer ${data.access}`;
+          return api(config);
+        } catch {
+          refreshPromise = null;
+          clearTokens();
+          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
+        }
+      } else {
+        clearTokens();
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Surface a readable message from a DRF error payload, e.g.
 // {"rate": ["Rate must be greater than 0."]} -> "Rate must be greater than 0."
@@ -16,6 +98,19 @@ export function apiErrorMessage(err, fallback = 'Something went wrong.') {
   }
   return fallback;
 }
+
+export const Auth = {
+  register: (payload) => api.post('/auth/register/', payload).then((r) => r.data),
+  login: (username, password) => api.post('/auth/login/', { username, password }).then((r) => r.data),
+  me: () => api.get('/auth/me/').then((r) => r.data),
+  requestPasswordReset: (email) => api.post('/auth/password-reset/', { email }).then((r) => r.data),
+  confirmPasswordReset: (uid, token, password) =>
+    api.post('/auth/password-reset/confirm/', { uid, token, password }).then((r) => r.data),
+  users: {
+    list: () => api.get('/auth/users/').then((r) => r.data),
+    update: (id, payload) => api.patch(`/auth/users/${id}/`, payload).then((r) => r.data),
+  },
+};
 
 export const Customers = {
   list: () => api.get('/customers/').then((r) => r.data),
@@ -57,7 +152,7 @@ export const Bills = {
 
 export const Reports = {
   get: (month) => api.get('/reports/', { params: { month } }).then((r) => r.data),
-  exportUrl: (month) => `/api/reports/export/?month=${encodeURIComponent(month)}`,
+  exportUrl: (month) => `${API_BASE_URL}/reports/export/?month=${encodeURIComponent(month)}`,
 };
 
 export const Settings = {

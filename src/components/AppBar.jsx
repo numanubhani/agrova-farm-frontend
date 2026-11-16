@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import Icon from './Icon';
 import { useAppState } from '../context/AppStateContext';
+import { useAuth } from '../context/AuthContext';
 import { monthShort } from '../lib/format';
 
 const TITLES = {
@@ -12,14 +13,16 @@ const TITLES = {
   '/more': 'More',
   '/customers': 'Customers',
   '/reports': 'Reports',
+  '/admin': 'Admin Panel',
 };
 const MONTH_ROUTES = ['/', '/bills', '/expenses', '/reports'];
-const SUB_OF_MORE = ['/milk', '/customers', '/reports'];
+const SUB_OF_MORE = ['/milk', '/customers', '/reports', '/admin'];
 
 export default function AppBar() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { month, shiftMonth, effTheme, setTheme, farmName } = useAppState();
+  const { user, logout } = useAuth();
 
   const showMonth = MONTH_ROUTES.includes(pathname);
   const isSubOfMore = SUB_OF_MORE.includes(pathname);
@@ -51,6 +54,15 @@ export default function AppBar() {
             >
               <Icon name={effTheme === 'dark' ? 'sun' : 'moon'} />
             </button>
+            {user && (
+              <button
+                className="tbtn"
+                onClick={() => { logout(); navigate('/login'); }}
+                aria-label="Logout"
+              >
+                <Icon name="logout" />
+              </button>
+            )}
           </div>
         </div>
       </div>

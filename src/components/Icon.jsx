@@ -18,6 +18,9 @@ const PATHS = {
   close: <path d="M18 6L6 18M6 6l12 12" />,
   check: <path d="M4.5 12.5l5 5 10-10" />,
   alert: <><path d="M10.3 3.9L2.5 18a1.8 1.8 0 001.6 2.7h15.8a1.8 1.8 0 001.6-2.7L13.7 3.9a1.8 1.8 0 00-3.4 0z" /><path d="M12 9.5v4.2M12 17h.01" /></>,
+  eye: <><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" /><circle cx="12" cy="12" r="3" /></>,
+  eyeOff: <><path d="M3 3l18 18" /><path d="M9.9 4.24A10.94 10.94 0 0112 4c7 0 11 8 11 8a13.3 13.3 0 01-4.22 4.9M6.3 6.64A13.1 13.1 0 001 12s4 8 11 8a10.6 10.6 0 005.08-1.26" /><path d="M9.5 9.6a3 3 0 004.1 4.2" /></>,
+  logout: <><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></>,
 };
 
 export default function Icon({ name, className = 'ic', style }) {
